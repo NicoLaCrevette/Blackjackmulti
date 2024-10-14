@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Blackjack</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Press Start 2P', cursive;
+      background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+      color: #fff;
+    }
+    #game-container {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.7);
+      width: 90%;
+      max-width: 800px;
+    }
+    h1 {
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      color: #ffd700;
+    }
+    .player-container {
+      margin: 20px 0;
+      padding: 20px;
+      border: 1px solid #fff;
+      border-radius: 10px;
+    }
+    .card {
+      display: inline-block;
+      width: 70px;
+      height: 100px;
+      border-radius: 10px;
+      background-color: #fff;
+      color: #000;
+      font-size: 1.5em;
+      line-height: 100px;
+      text-align: center;
+      margin: 5px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      position: relative;
+      transform: translateY(-50px);
+      opacity: 0;
+      transition: transform 0.5s ease-out, opacity 0.5s ease-out;
+    }
+    .card.revealed {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(145deg, transparent, rgba(0, 0, 0, 0.1));
+      border-radius: 10px;
+    }
+    #controls {
+      margin-top: 20px;
+    }
+    button {
+      padding: 15px 25px;
+      margin: 10px;
+      font-size: 1.2em;
+      cursor: pointer;
+      border: none;
+      border-radius: 50px;
+      background-color: #007bff;
+      color: white;
+      transition: background-color 0.3s, transform 0.2s;
+    }
+    button:hover {
+      background-color: #0056b3;
+      transform: translateY(-3px);
+    }
+    button:active {
+      transform: translateY(2px);
+    }
+    #result {
+      font-size: 1.5em;
+      margin-top: 20px;
+      color: #ffd700;
+      text-shadow: 0 0 10px #ffd700;
+    }
+    .player-score, .player-balance {
+      font-size: 1.2em;
+      margin-top: 10px;
+    }
+    #bet-container {
+      margin-top: 20px;
+    }
+    #bet-input {
+      font-size: 1.2em;
+      padding: 10px;
+      width: 80px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-container">
+    <h1>Multiplayer Blackjack</h1>
+    <div id="bet-container">
+      <label for="bet-input">Bet: $</label>
+      <input type="number" id="bet-input" min="10" value="10">
+      <button id="place-bet-button">Place Bet</button>
+    </div>
+    <div id="players"></div>
+    <div id="dealer" class="player-container">
+      <h2>Dealer's Hand</h2>
+      <div id="dealer-hand"></div>
+      <p id="dealer-score"></p>
+    </div>
+    <div id="controls">
+      <button id="hit-button" disabled>Hit</button>
+      <button id="stand-button" disabled>Stand</button>
+    </div>
+    <p id="result"></p>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    // Initial join to the game
+    const playerName = prompt("Enter your name:");
+    socket.emit('joinGame', playerName);
+
+    const playersDiv = document.getElementById("players");
+    const dealerHandDiv = document.getElementById("dealer-hand");
+    const dealerScoreDiv = document.getElementById("dealer-score");
+    const resultDiv = document.getElementById("result");
+    const hitButton = document.getElementById("hit-button");
+    const standButton = document.getElementById("stand-button");
+    const placeBetButton = document.getElementById("place-bet-button");
+    const betInput = document.getElementById("bet-input");
+
+    socket.on('updatePlayers', (players) => {
+      playersDiv.innerHTML = "";
+      players.forEach((player) => {
+        const playerDiv = document.createElement("div");
+        playerDiv.classList.add("player-container");
+        playerDiv.innerHTML = `
+          <h2>${player.name}'s Hand</h2>
+          <div>${player.hand.map(card => `${card.value}${card.suit}`).join(' ')}</div>
+          <p class="player-balance">Balance: $${player.balance}</p>
+        `;
+        playersDiv.appendChild(playerDiv);
+      });
+    });
+
+    // Place Bet
+    placeBetButton.addEventListener("click", () => {
+      const bet = parseInt(betInput.value);
+      socket.emit('placeBet', bet);
+    });
+
+    // Deal Card
+    hitButton.addEventListener("click", () => {
+      socket.emit('dealCard');
+    });
+
+    // Stand
+    standButton.addEventListener("click", () => {
+      socket.emit('stand');
+    });
+
+    socket.on('startGame', (dealer, players) => {
+      dealerHandDiv.innerHTML = dealer.hand.map(card => `${card.value}${card.suit}`).join(' ');
+      dealerScoreDiv.textContent = `Score: ${dealer.score}`;
+      updatePlayersUI(players);
+      hitButton.disabled = false;
+      standButton.disabled = false;
+    });
+
+    socket.on('updateDealer', (dealer) => {
+      dealerHandDiv.innerHTML = dealer.hand.map(card => `${card.value}${card.suit}`).join(' ');
+      dealerScoreDiv.textContent = `Score: ${dealer.score}`;
+    });
+
+    socket.on('gameResult', (result) => {
+      resultDiv.textContent = result;
+      disableButtons();
+    });
+
+    function disableButtons() {
+      hitButton.disabled = true;
+      standButton.disabled = true;
+      placeBetButton.disabled = false;
+      betInput.disabled = false;
+    }
+  </script>
+</body>
+</html>
