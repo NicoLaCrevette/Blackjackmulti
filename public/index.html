@@ -175,13 +175,12 @@
     });
 
     placeBetButton.addEventListener("click", () => {
-      if (!hitButton.disabled && !standButton.disabled) {
-        return;
+      if (hitButton.disabled && standButton.disabled) {
+        const bet = parseInt(betInput.value);
+        socket.emit('placeBet', bet);
+        hitButton.style.display = 'inline-block';
+        standButton.style.display = 'inline-block';
       }
-      const bet = parseInt(betInput.value);
-      socket.emit('placeBet', bet);
-      hitButton.style.display = 'none';
-      standButton.style.display = 'none';
     });
 
     hitButton.addEventListener("click", () => {
