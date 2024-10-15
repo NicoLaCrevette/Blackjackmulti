@@ -154,12 +154,30 @@
         playerDiv.classList.add("player-container");
         playerDiv.innerHTML = `
           <h2>${player.name}'s Hand</h2>
-          <div>${player.hand.map(card => `${card.value}${card.suit}`).join(' ')}</div>
+          <div id="player-hand-${player.name}">${player.hand.map(card => `${card.value}${card.suit}`).join(' ')}</div>
           <p class="player-balance">Balance: $${player.balance}</p>
         `;
         playersDiv.appendChild(playerDiv);
       });
     });
+
+    function animateCardDealing(cardElement, handDiv) {
+      cardElement.style.transform = "translateY(-50px)";
+      cardElement.style.opacity = "0";
+      handDiv.appendChild(cardElement);
+      setTimeout(() => {
+        cardElement.classList.add("revealed");
+      }, 100);
+    }
+
+    function dealCard(hand, handDivId) {
+      const card = hand.pop();
+      const cardDiv = document.createElement("div");
+      cardDiv.classList.add("card");
+      cardDiv.textContent = `${card.value}${card.suit}`;
+      const handDiv = document.getElementById(handDivId);
+      animateCardDealing(cardDiv, handDiv);
+    }
 
     // Place Bet
     placeBetButton.addEventListener("click", () => {
@@ -178,15 +196,28 @@
     });
 
     socket.on('startGame', (dealer, players) => {
-      dealerHandDiv.innerHTML = dealer.hand.map(card => `${card.value}${card.suit}`).join(' ');
+      dealerHandDiv.innerHTML = "";
+      dealer.hand.forEach(card => {
+        dealCard([card], "dealer-hand");
+      });
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
-      updatePlayersUI(players);
+      players.forEach(player => {
+        const playerHandDivId = `player-hand-${player.name}`;
+        const playerHandDiv = document.getElementById(playerHandDivId);
+        playerHandDiv.innerHTML = "";
+        player.hand.forEach(card => {
+          dealCard([card], playerHandDivId);
+        });
+      });
       hitButton.disabled = false;
       standButton.disabled = false;
     });
 
     socket.on('updateDealer', (dealer) => {
-      dealerHandDiv.innerHTML = dealer.hand.map(card => `${card.value}${card.suit}`).join(' ');
+      dealerHandDiv.innerHTML = "";
+      dealer.hand.forEach(card => {
+        dealCard([card], "dealer-hand");
+      });
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
     });
 
