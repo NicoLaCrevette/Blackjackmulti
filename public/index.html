@@ -140,7 +140,7 @@
             ${player.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('')}
           </div>
           <p class="player-balance">Balance: $${player.balance}</p>
-          <p class="player-score">Score: ${player.score || 0}</p>
+          <p class="player-score" id="player-score-${player.id}">Score: ${player.score || 0}</p>
         `;
         playersDiv.appendChild(playerDiv);
       });
@@ -148,8 +148,7 @@
 
     socket.on('startGame', ({ dealer, players }) => {
       dealerHandDiv.innerHTML = "";
-      revealCardsSequentially(dealer.hand, dealerHandDiv);
-      dealerScoreDiv.textContent = `Score: ${dealer.score}`;
+      revealCardsSequentially(dealer.hand, dealerHandDiv, dealerScoreDiv, dealer.score);
       playersDiv.innerHTML = "";
       players.forEach((player) => {
         const playerDiv = document.createElement("div");
@@ -158,11 +157,12 @@
           <h2>${player.name}'s Hand</h2>
           <div id="player-hand-${player.id}"></div>
           <p class="player-balance">Balance: $${player.balance}</p>
-          <p class="player-score">Score: ${player.score}</p>
+          <p class="player-score" id="player-score-${player.id}">Score: ${player.score}</p>
         `;
         playersDiv.appendChild(playerDiv);
         const playerHandDiv = document.getElementById(`player-hand-${player.id}`);
-        revealCardsSequentially(player.hand, playerHandDiv);
+        const playerScoreDiv = document.getElementById(`player-score-${player.id}`);
+        revealCardsSequentially(player.hand, playerHandDiv, playerScoreDiv, player.score);
       });
       hitButton.disabled = false;
       standButton.disabled = false;
@@ -183,8 +183,7 @@
 
     socket.on('updateDealer', (dealer) => {
       dealerHandDiv.innerHTML = "";
-      revealCardsSequentially(dealer.hand, dealerHandDiv);
-      dealerScoreDiv.textContent = `Score: ${dealer.score}`;
+      revealCardsSequentially(dealer.hand, dealerHandDiv, dealerScoreDiv, dealer.score);
     });
 
     socket.on('gameResult', (result) => {
@@ -199,16 +198,29 @@
       betInput.disabled = false;
     }
 
-    function revealCardsSequentially(cards, container) {
+    function revealCardsSequentially(cards, container, scoreDiv, finalScore) {
       container.innerHTML = "";
+      let currentScore = 0;
       cards.forEach((card, index) => {
         setTimeout(() => {
           const cardDiv = document.createElement("div");
           cardDiv.classList.add("card");
           cardDiv.textContent = `${card.value}${card.suit}`;
           container.appendChild(cardDiv);
+          currentScore += getCardValue(card);
+          scoreDiv.textContent = `Score: ${currentScore}`;
         }, index * 500); // Reveal each card with a delay of 500ms
       });
+    }
+
+    function getCardValue(card) {
+      if (card.value === 'A') {
+        return 11;
+      } else if (['K', 'Q', 'J'].includes(card.value)) {
+        return 10;
+      } else {
+        return parseInt(card.value);
+      }
     }
   </script>
 </body>
