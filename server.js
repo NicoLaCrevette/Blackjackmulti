@@ -6,32 +6,40 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
+const port = process.env.PORT || 3000;
+
+app.use(express.static('public'));
+
 let players = [];
-let deck = [];
-let dealerHand = [];
+let dealer = { hand: [], score: 0 };
 
 function createDeck() {
-  const suits = ["♠", "♣", "♥", "♦"];
-  const values = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-  deck = [];
+  const suits = ['♠', '♣', '♥', '♦'];
+  const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  let deck = [];
   for (let suit of suits) {
     for (let value of values) {
       deck.push({ value, suit });
     }
   }
-  shuffleDeck();
+  return deck.sort(() => Math.random() - 0.5);
 }
 
-function shuffleDeck() {
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-}
+let deck = createDeck();
 
-function calculateHandValue(hand) {
-  let value = hand.reduce((sum, card) => sum + getCardValue(card), 0);
-  let aces = hand.filter(card => card.value === "A").length;
+function calculateScore(hand) {
+  let value = 0;
+  let aces = 0;
+  hand.forEach(card => {
+    if (card.value === 'A') {
+      value += 11;
+      aces++;
+    } else if (['K', 'Q', 'J'].includes(card.value)) {
+      value += 10;
+    } else {
+      value += parseInt(card.value);
+    }
+  });
   while (value > 21 && aces > 0) {
     value -= 10;
     aces--;
@@ -39,118 +47,85 @@ function calculateHandValue(hand) {
   return value;
 }
 
-function getCardValue(card) {
-  if (card.value === "A") {
-    return 11;
-  } else if (["K", "Q", "J"].includes(card.value)) {
-    return 10;
-  } else {
-    return parseInt(card.value);
-  }
-}
-
 io.on('connection', (socket) => {
-  console.log('New player connected:', socket.id);
-
-  socket.on('joinGame', (playerName) => {
-    players.push({ id: socket.id, name: playerName, hand: [], balance: 1000, isStanding: false });
-    if (players.length === 1) {
-      // First player joined, create a new deck and dealer hand
-      createDeck();
-      dealerHand = [];
-    }
+  socket.on('joinGame', (name) => {
+    const newPlayer = { id: socket.id, name, hand: [], balance: 1000, bet: 0 };
+    players.push(newPlayer);
     io.emit('updatePlayers', players);
   });
 
   socket.on('placeBet', (bet) => {
     const player = players.find(p => p.id === socket.id);
-    if (player && player.balance >= bet) {
-      player.balance -= bet;
+    if (player && bet > 0 && bet <= player.balance) {
       player.bet = bet;
+      player.balance -= bet;
       io.emit('updatePlayers', players);
-      if (players.every(p => p.bet > 0)) {
-        // All players have placed their bets, start dealing initial cards
-        dealInitialCards();
-      }
     }
   });
 
   socket.on('dealCard', () => {
     const player = players.find(p => p.id === socket.id);
     if (player) {
-      const card = deck.pop();
-      player.hand.push(card);
+      player.hand.push(deck.pop());
+      player.score = calculateScore(player.hand);
       io.emit('updatePlayers', players);
-      if (calculateHandValue(player.hand) > 21) {
-        player.isStanding = true;
-        checkAllPlayersStand();
+      if (player.score > 21) {
+        socket.emit('gameResult', `${player.name} busts! You lose!`);
+        disablePlayer(player);
       }
     }
   });
 
   socket.on('stand', () => {
-    const playerIndex = players.findIndex(p => p.id === socket.id);
-    if (playerIndex !== -1) {
-      players[playerIndex].isStanding = true;
-      checkAllPlayersStand();
+    const player = players.find(p => p.id === socket.id);
+    if (player) {
+      player.standing = true;
+      if (players.every(p => p.standing || calculateScore(p.hand) > 21)) {
+        dealerTurn();
+      }
     }
   });
 
   socket.on('disconnect', () => {
-    console.log('Player disconnected:', socket.id);
     players = players.filter(p => p.id !== socket.id);
     io.emit('updatePlayers', players);
   });
+
+  function dealerTurn() {
+    while (calculateScore(dealer.hand) < 17) {
+      dealer.hand.push(deck.pop());
+    }
+    dealer.score = calculateScore(dealer.hand);
+    io.emit('updateDealer', dealer);
+    determineWinners();
+  }
+
+  function determineWinners() {
+    players.forEach(player => {
+      if (player.score <= 21) {
+        if (dealer.score > 21 || player.score > dealer.score) {
+          player.balance += player.bet * 2;
+          socket.to(player.id).emit('gameResult', `${player.name} wins!`);
+        } else if (player.score === dealer.score) {
+          player.balance += player.bet;
+          socket.to(player.id).emit('gameResult', `${player.name} ties!`);
+        } else {
+          socket.to(player.id).emit('gameResult', `${player.name} loses!`);
+        }
+      }
+    });
+    players.forEach(player => {
+      player.hand = [];
+      player.bet = 0;
+      player.standing = false;
+    });
+    dealer.hand = [];
+    deck = createDeck();
+    io.emit('updatePlayers', players);
+    io.emit('updateDealer', dealer);
+  }
 });
 
-function dealInitialCards() {
-  players.forEach(player => {
-    player.hand.push(deck.pop());
-    player.hand.push(deck.pop());
-  });
-  dealerHand.push(deck.pop());
-  io.emit('startGame', { hand: dealerHand, score: calculateHandValue(dealerHand) }, players);
-}
-
-function checkAllPlayersStand() {
-  if (players.every(player => player.isStanding)) {
-    dealerTurn();
-  }
-}
-
-function dealerTurn() {
-  while (calculateHandValue(dealerHand) < 17) {
-    dealerHand.push(deck.pop());
-  }
-  const dealerScore = calculateHandValue(dealerHand);
-  io.emit('updateDealer', { hand: dealerHand, score: dealerScore });
-  determineWinners();
-}
-
-function determineWinners() {
-  const dealerScore = calculateHandValue(dealerHand);
-  players.forEach(player => {
-    const playerScore = calculateHandValue(player.hand);
-    let result;
-    if (playerScore > 21) {
-      result = `${player.name} busts! Dealer wins.`;
-    } else if (dealerScore > 21 || playerScore > dealerScore) {
-      result = `${player.name} wins!`;
-      player.balance += player.bet * 2;
-    } else if (playerScore < dealerScore) {
-      result = `${player.name} loses! Dealer wins.`;
-    } else {
-      result = `${player.name} ties with the dealer.`;
-      player.balance += player.bet;
-    }
-    io.to(player.id).emit('gameResult', result);
-  });
-  io.emit('updatePlayers', players);
-}
-
-app.use(express.static('public'));
-
-const port = process.env.PORT || 3000;
 server.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
