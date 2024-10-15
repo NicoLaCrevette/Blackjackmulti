@@ -147,7 +147,8 @@
     });
 
     socket.on('startGame', ({ dealer, players }) => {
-      dealerHandDiv.innerHTML = dealer.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('');
+      dealerHandDiv.innerHTML = "";
+      revealCardsSequentially(dealer.hand, dealerHandDiv);
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
       playersDiv.innerHTML = "";
       players.forEach((player) => {
@@ -155,13 +156,13 @@
         playerDiv.classList.add("player-container");
         playerDiv.innerHTML = `
           <h2>${player.name}'s Hand</h2>
-          <div id="player-hand-${player.id}">
-            ${player.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('')}
-          </div>
+          <div id="player-hand-${player.id}"></div>
           <p class="player-balance">Balance: $${player.balance}</p>
           <p class="player-score">Score: ${player.score}</p>
         `;
         playersDiv.appendChild(playerDiv);
+        const playerHandDiv = document.getElementById(`player-hand-${player.id}`);
+        revealCardsSequentially(player.hand, playerHandDiv);
       });
       hitButton.disabled = false;
       standButton.disabled = false;
@@ -181,7 +182,8 @@
     });
 
     socket.on('updateDealer', (dealer) => {
-      dealerHandDiv.innerHTML = dealer.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('');
+      dealerHandDiv.innerHTML = "";
+      revealCardsSequentially(dealer.hand, dealerHandDiv);
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
     });
 
@@ -195,6 +197,18 @@
       standButton.disabled = true;
       placeBetButton.disabled = false;
       betInput.disabled = false;
+    }
+
+    function revealCardsSequentially(cards, container) {
+      container.innerHTML = "";
+      cards.forEach((card, index) => {
+        setTimeout(() => {
+          const cardDiv = document.createElement("div");
+          cardDiv.classList.add("card");
+          cardDiv.textContent = `${card.value}${card.suit}`;
+          container.appendChild(cardDiv);
+        }, index * 500); // Reveal each card with a delay of 500ms
+      });
     }
   </script>
 </body>
