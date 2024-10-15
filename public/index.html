@@ -148,7 +148,7 @@
 
     socket.on('startGame', ({ dealer, players }) => {
       dealerHandDiv.innerHTML = "";
-      revealCardsSequentially(dealer.hand, dealerHandDiv, dealerScoreDiv, dealer.score);
+      revealCard(dealer.hand[0], dealerHandDiv); // Reveal only one card initially
       playersDiv.innerHTML = "";
       players.forEach((player) => {
         const playerDiv = document.createElement("div");
@@ -164,10 +164,12 @@
         const playerScoreDiv = document.getElementById(`player-score-${player.id}`);
         revealCardsSequentially(player.hand, playerHandDiv, playerScoreDiv, player.score);
       });
+      hitButton.style.display = 'inline-block';
+      standButton.style.display = 'inline-block';
       hitButton.disabled = false;
       standButton.disabled = false;
       placeBetButton.disabled = true;
-    });
+    }););
 
     placeBetButton.addEventListener("click", () => {
       if (!hitButton.disabled && !standButton.disabled) {
@@ -175,6 +177,8 @@
       }
       const bet = parseInt(betInput.value);
       socket.emit('placeBet', bet);
+      hitButton.style.display = 'none';
+      standButton.style.display = 'none';
     });
 
     hitButton.addEventListener("click", () => {
@@ -198,7 +202,9 @@
     function disableButtons() {
       hitButton.disabled = true;
       standButton.disabled = true;
-      placeBetButton.disabled = true;
+      hitButton.style.display = 'none';
+      standButton.style.display = 'none';
+      placeBetButton.disabled = false;
       betInput.disabled = false;
     }
 
@@ -210,6 +216,19 @@
           const cardDiv = document.createElement("div");
           cardDiv.classList.add("card");
           cardDiv.textContent = `${card.value}${card.suit}`;
+          container.appendChild(cardDiv);
+          currentScore += getCardValue(card);
+          scoreDiv.textContent = `Score: ${currentScore}`;
+        }, index * 500); // Reveal each card with a delay of 500ms
+      });
+    }
+
+    function revealCard(card, container) {
+      const cardDiv = document.createElement("div");
+      cardDiv.classList.add("card");
+      cardDiv.textContent = `${card.value}${card.suit}`;
+      container.appendChild(cardDiv);
+    }${card.suit}`;
           container.appendChild(cardDiv);
           currentScore += getCardValue(card);
           scoreDiv.textContent = `Score: ${currentScore}`;
