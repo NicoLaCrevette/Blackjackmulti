@@ -172,7 +172,7 @@
       hitButton.disabled = false;
       standButton.disabled = false;
       placeBetButton.disabled = true;
-    });););
+    });
 
     placeBetButton.addEventListener("click", () => {
       if (!hitButton.disabled && !standButton.disabled) {
@@ -231,12 +231,6 @@
       cardDiv.classList.add("card");
       cardDiv.textContent = `${card.value}${card.suit}`;
       container.appendChild(cardDiv);
-    }${card.suit}`;
-          container.appendChild(cardDiv);
-          currentScore += getCardValue(card);
-          scoreDiv.textContent = `Score: ${currentScore}`;
-        }, index * 500); // Reveal each card with a delay of 500ms
-      });
     }
 
     function getCardValue(card) {
