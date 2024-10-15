@@ -166,9 +166,13 @@
       });
       hitButton.disabled = false;
       standButton.disabled = false;
+      placeBetButton.disabled = true;
     });
 
     placeBetButton.addEventListener("click", () => {
+      if (!hitButton.disabled && !standButton.disabled) {
+        return;
+      }
       const bet = parseInt(betInput.value);
       socket.emit('placeBet', bet);
     });
@@ -194,7 +198,7 @@
     function disableButtons() {
       hitButton.disabled = true;
       standButton.disabled = true;
-      placeBetButton.disabled = false;
+      placeBetButton.disabled = true;
       betInput.disabled = false;
     }
 
