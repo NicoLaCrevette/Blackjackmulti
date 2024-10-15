@@ -48,24 +48,6 @@
       text-align: center;
       margin: 5px;
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
-      position: relative;
-      transform: translateY(-50px);
-      opacity: 0;
-      transition: transform 0.5s ease-out, opacity 0.5s ease-out;
-    }
-    .card.revealed {
-      transform: translateY(0);
-      opacity: 1;
-    }
-    .card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(145deg, transparent, rgba(0, 0, 0, 0.1));
-      border-radius: 10px;
     }
     #controls {
       margin-top: 20px;
@@ -134,10 +116,6 @@
   <script>
     const socket = io();
 
-    // Initial join to the game
-    const playerName = prompt("Enter your name:");
-    socket.emit('joinGame', playerName);
-
     const playersDiv = document.getElementById("players");
     const dealerHandDiv = document.getElementById("dealer-hand");
     const dealerScoreDiv = document.getElementById("dealer-score");
@@ -147,6 +125,10 @@
     const placeBetButton = document.getElementById("place-bet-button");
     const betInput = document.getElementById("bet-input");
 
+    // Join game
+    const playerName = prompt("Enter your name:");
+    socket.emit('joinGame', playerName);
+
     socket.on('updatePlayers', (players) => {
       playersDiv.innerHTML = "";
       players.forEach((player) => {
@@ -154,70 +136,52 @@
         playerDiv.classList.add("player-container");
         playerDiv.innerHTML = `
           <h2>${player.name}'s Hand</h2>
-          <div id="player-hand-${player.name}">${player.hand.map(card => `${card.value}${card.suit}`).join(' ')}</div>
+          <div id="player-hand-${player.id}">
+            ${player.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('')}
+          </div>
           <p class="player-balance">Balance: $${player.balance}</p>
+          <p class="player-score">Score: ${player.score || 0}</p>
         `;
         playersDiv.appendChild(playerDiv);
       });
     });
 
-    function animateCardDealing(cardElement, handDiv) {
-      cardElement.style.transform = "translateY(-50px)";
-      cardElement.style.opacity = "0";
-      handDiv.appendChild(cardElement);
-      setTimeout(() => {
-        cardElement.classList.add("revealed");
-      }, 100);
-    }
-
-    function dealCard(hand, handDivId) {
-      const card = hand.pop();
-      const cardDiv = document.createElement("div");
-      cardDiv.classList.add("card");
-      cardDiv.textContent = `${card.value}${card.suit}`;
-      const handDiv = document.getElementById(handDivId);
-      animateCardDealing(cardDiv, handDiv);
-    }
-
-    // Place Bet
-    placeBetButton.addEventListener("click", () => {
-      const bet = parseInt(betInput.value);
-      socket.emit('placeBet', bet);
-    });
-
-    // Deal Card
-    hitButton.addEventListener("click", () => {
-      socket.emit('dealCard');
-    });
-
-    // Stand
-    standButton.addEventListener("click", () => {
-      socket.emit('stand');
-    });
-
-    socket.on('startGame', (dealer, players) => {
-      dealerHandDiv.innerHTML = "";
-      dealer.hand.forEach(card => {
-        dealCard([card], "dealer-hand");
-      });
+    socket.on('startGame', ({ dealer, players }) => {
+      dealerHandDiv.innerHTML = dealer.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('');
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
-      players.forEach(player => {
-        const playerHandDivId = `player-hand-${player.name}`;
-        const playerHandDiv = document.getElementById(playerHandDivId);
-        playerHandDiv.innerHTML = "";
-        player.hand.forEach(card => {
-          dealCard([card], playerHandDivId);
-        });
+      playersDiv.innerHTML = "";
+      players.forEach((player) => {
+        const playerDiv = document.createElement("div");
+        playerDiv.classList.add("player-container");
+        playerDiv.innerHTML = `
+          <h2>${player.name}'s Hand</h2>
+          <div id="player-hand-${player.id}">
+            ${player.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('')}
+          </div>
+          <p class="player-balance">Balance: $${player.balance}</p>
+          <p class="player-score">Score: ${player.score}</p>
+        `;
+        playersDiv.appendChild(playerDiv);
       });
       hitButton.disabled = false;
       standButton.disabled = false;
     });
 
+    placeBetButton.addEventListener("click", () => {
+      const bet = parseInt(betInput.value);
+      socket.emit('placeBet', bet);
+    });
+
+    hitButton.addEventListener("click", () => {
+      socket.emit('dealCard');
+    });
+
+    standButton.addEventListener("click", () => {
+      socket.emit('stand');
+    });
+
     socket.on('updateDealer', (dealer) => {
-      dealerHandDiv.innerHTML = "";
-      dealer.hand.forEach(card => {
-        dealCard([card], "dealer-hand");
-      });
+      dealerHandDiv.innerHTML = dealer.hand.map(card => `<div class="card">${card.value}${card.suit}</div>`).join('');
       dealerScoreDiv.textContent = `Score: ${dealer.score}`;
     });
 
