@@ -126,7 +126,10 @@
     const betInput = document.getElementById("bet-input");
 
     // Join game
-    const playerName = prompt("Enter your name:");
+    let playerName;
+    while (!playerName) {
+      playerName = prompt("Enter your name:");
+    }
     socket.emit('joinGame', playerName);
 
     socket.on('updatePlayers', (players) => {
@@ -169,7 +172,7 @@
       hitButton.disabled = false;
       standButton.disabled = false;
       placeBetButton.disabled = true;
-    }););
+    });););
 
     placeBetButton.addEventListener("click", () => {
       if (!hitButton.disabled && !standButton.disabled) {
