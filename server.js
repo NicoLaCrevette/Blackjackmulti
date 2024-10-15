@@ -49,7 +49,7 @@ function calculateScore(hand) {
 
 io.on('connection', (socket) => {
   socket.on('joinGame', (name) => {
-    const newPlayer = { id: socket.id, name, hand: [], balance: 1000, bet: 0 };
+    const newPlayer = { id: socket.id, name, hand: [], balance: 1000, bet: 0, standing: false };
     players.push(newPlayer);
     io.emit('updatePlayers', players);
   });
@@ -60,6 +60,11 @@ io.on('connection', (socket) => {
       player.bet = bet;
       player.balance -= bet;
       io.emit('updatePlayers', players);
+
+      // Check if all players have placed their bets
+      if (players.every(p => p.bet > 0)) {
+        startGame();
+      }
     }
   });
 
@@ -71,7 +76,7 @@ io.on('connection', (socket) => {
       io.emit('updatePlayers', players);
       if (player.score > 21) {
         socket.emit('gameResult', `${player.name} busts! You lose!`);
-        disablePlayer(player);
+        player.standing = true;
       }
     }
   });
@@ -90,6 +95,20 @@ io.on('connection', (socket) => {
     players = players.filter(p => p.id !== socket.id);
     io.emit('updatePlayers', players);
   });
+
+  function startGame() {
+    // Deal initial cards to players and dealer
+    players.forEach(player => {
+      player.hand.push(deck.pop());
+      player.hand.push(deck.pop());
+      player.score = calculateScore(player.hand);
+    });
+    dealer.hand.push(deck.pop());
+    dealer.hand.push(deck.pop());
+    dealer.score = calculateScore(dealer.hand);
+
+    io.emit('startGame', { dealer, players });
+  }
 
   function dealerTurn() {
     while (calculateScore(dealer.hand) < 17) {
